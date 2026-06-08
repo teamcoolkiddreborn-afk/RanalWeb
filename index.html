@@ -586,6 +586,13 @@
   const STORAGE_KEY_APP   = (id) => `likes_app_${id}`;
   const LOCAL_KEY_SITE    = 'voted_site';
   const LOCAL_KEY_APP     = (id) => `voted_app_${id}`;
+  const LOCAL_COUNT_KEY   = (key) => `count_${key}`;
+
+  function hasSharedStorage() {
+    return typeof window.storage !== 'undefined'
+      && typeof window.storage.get === 'function'
+      && typeof window.storage.set === 'function';
+  }
 
   // Génère un visiteur ID unique stocké dans localStorage
   function getVisitorId() {
@@ -600,13 +607,24 @@
   // ── STORAGE HELPERS ──────────────────────────────────────
   async function getCount(key) {
     try {
-      const res = await window.storage.get(key, true);
-      return res ? (parseInt(res.value) || 0) : 0;
+      if (hasSharedStorage()) {
+        const res = await window.storage.get(key, true);
+        return res ? (parseInt(res.value, 10) || 0) : 0;
+      }
+
+      return parseInt(localStorage.getItem(LOCAL_COUNT_KEY(key)), 10) || 0;
     } catch { return 0; }
   }
 
   async function setCount(key, val) {
-    try { await window.storage.set(key, String(val), true); } catch {}
+    try {
+      if (hasSharedStorage()) {
+        await window.storage.set(key, String(val), true);
+        return;
+      }
+
+      localStorage.setItem(LOCAL_COUNT_KEY(key), String(val));
+    } catch {}
   }
 
   function hasVoted(localKey) {
@@ -714,14 +732,11 @@
     });
   }
 
-  // Lance quand window.storage est disponible
-  if (typeof window.storage !== 'undefined') {
-    init();
+  // Lance le systeme de likes, avec localStorage si window.storage n'existe pas.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    window.addEventListener('load', () => {
-      // Fallback si storage non disponible (ouverture locale) : affiche 0
-      document.querySelectorAll('.like-count').forEach(el => el.textContent = '0');
-    });
+    init();
   }
 </script>
 </body>
